@@ -1,0 +1,18 @@
+# Xcode / Swift
+DerivedData/
+build/
+*.xcworkspace/xcuserdata/
+*.xcuserdatad
+*.xcuserstate
+
+# SwiftPM
+.swiftpm/
+Packages/
+
+# macOS
+.DS_Store
+
+# Python venv e caches
+server/.venv/
+server/__pycache__/
+*.pyc
