@@ -16,3 +16,6 @@ Packages/
 server/.venv/
 server/__pycache__/
 *.pyc
+*.pyo
+*.pyd
+
