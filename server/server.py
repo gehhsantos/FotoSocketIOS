@@ -1,65 +1,42 @@
 import socket, struct, os
 from datetime import datetime
+import cv2, numpy as np
 
-SAVE_DIR = "received"
-HOST = "0.0.0.0"   # escuta em todas as interfaces
-PORT = 5001        # você pode mudar no app
+HOST, PORT = "0.0.0.0", 5001
+OUT = os.path.join(os.path.dirname(__file__), "received")
+os.makedirs(OUT, exist_ok=True)
 
-os.makedirs(SAVE_DIR, exist_ok=True)
-
-def recv_all(conn, n):
-    """Lê exatamente n bytes do socket."""
+def recv_exact(conn, n):
     data = b""
     while len(data) < n:
         chunk = conn.recv(n - len(data))
         if not chunk:
-            raise ConnectionError("Conexão encerrada antes de receber tudo")
+            raise ConnectionError("Conexão encerrada.")
         data += chunk
     return data
 
-def show_image(path):
-    """Tenta exibir a imagem (OpenCV -> Pillow -> abre no sistema)."""
-    try:
-        import cv2
-        img = cv2.imread(path)
-        if img is None:
-            print("Não consegui carregar com OpenCV (cv2).")
-            return
+def save_and_show(jpeg):
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = os.path.join(OUT, f"foto_{ts}.jpg")
+    with open(path, "wb") as f:
+        f.write(jpeg)
+    print("Imagem salva em:", path)
+    arr = np.frombuffer(jpeg, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is not None:
         cv2.imshow("Última imagem recebida", img)
-        cv2.waitKey(1)  # atualiza a janela
-    except Exception:
-        try:
-            from PIL import Image
-            Image.open(path).show()
-        except Exception:
-            print("Não consegui exibir com OpenCV/Pillow. A imagem foi salva em disco.")
+        cv2.waitKey(1)
 
-def main():
+with socket.socket() as s:
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind((HOST, PORT))
+    s.listen(1)
     print(f"Servidor escutando em {HOST}:{PORT} (Aguardando foto...)")
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((HOST, PORT))
-        s.listen(1)
-        while True:
-            conn, addr = s.accept()
-            with conn:
-                print(f"Conexão de {addr}")
-                # 1) lê 4 bytes: tamanho (big-endian)
-                header = recv_all(conn, 4)
-                (length,) = struct.unpack(">I", header)
-                print(f"Tamanho recebido: {length} bytes")
-
-                # 2) lê os bytes da imagem
-                img_bytes = recv_all(conn, length)
-
-                # 3) salva com timestamp
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                path = os.path.join(SAVE_DIR, f"foto_{ts}.jpg")
-                with open(path, "wb") as f:
-                    f.write(img_bytes)
-                print(f"Imagem salva em: {path}")
-
-                # 4) exibe
-                show_image(path)
-
-if __name__ == "__main__":
-    main()
+    while True:
+        conn, addr = s.accept()
+        with conn:
+            print("Conexão de", addr)
+            (length,) = struct.unpack(">I", recv_exact(conn, 4))
+            print("Tamanho recebido:", length, "bytes")
+            data = recv_exact(conn, length)
+            save_and_show(data)
