@@ -19,3 +19,5 @@ server/__pycache__/
 *.pyo
 *.pyd
 
+server/received/
+server/received/
